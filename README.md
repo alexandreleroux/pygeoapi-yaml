@@ -179,6 +179,8 @@ There are two kinds of tests:
   - `/collections`, `/items`, `/items/{id}`, the queryables and an empty
     collection are checked.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
 ## Status and roadmap
 
 Done (0.1, not released yet):
@@ -192,11 +194,12 @@ Done (0.1, not released yet):
 - [x] Subclassing: override `_features()` to read another layout.
 - [x] Tests for the provider alone and through pygeoapi, checked by mutation
   testing (each deliberate bug in the provider makes a test fail).
+- [x] Continuous integration: pytest and flake8 on Python 3.12 and 3.13.
 
 Next:
 
-- [ ] Continuous integration: pytest and flake8 on several Python versions, and on
-  the latest pygeoapi as well as the oldest supported one.
+- [ ] CI on the oldest supported pygeoapi as well as the latest, once a release
+  after 0.24 is out.
 - [ ] First release on PyPI.
 - [ ] Listing on the
   [pygeoapi community plugins page](https://github.com/geopython/pygeoapi/wiki/CommunityPluginsThemes).
@@ -207,6 +210,18 @@ Next:
 - [ ] A directory of YAML files, one item per file, as a single collection.
 - [ ] Then ask the pygeoapi maintainers whether they want the provider in
   pygeoapi itself, as with CSV and TinyDB.
+
+## Authorship
+
+Most of the code, tests and documentation were written by Claude, an AI model
+made by Anthropic, working in [Claude Code](https://claude.com/claude-code).
+Alexandre Leroux started the project, set its goals and made its design
+decisions, and directed the work. Commits written with Claude carry a
+`Co-Authored-By: Claude` trailer.
+
+Whoever types the code, it is held to the same checks: each behaviour has a
+test, some tests go through pygeoapi itself, and mutation testing shows that the
+tests catch deliberate bugs.
 
 ## License
 

@@ -198,8 +198,8 @@ Done (0.1, not released yet):
 
 Next:
 
-- [ ] CI on the oldest supported pygeoapi as well as the latest, once a release
-  after 0.24 is out.
+- [ ] CI on both the oldest supported pygeoapi and the latest. For now they are
+  the same: 0.24 is both the minimum and the latest release.
 - [ ] First release on PyPI.
 - [ ] Listing on the
   [pygeoapi community plugins page](https://github.com/geopython/pygeoapi/wiki/CommunityPluginsThemes).

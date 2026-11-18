@@ -1,0 +1,22 @@
+# Observations — a sample data file for the tests and the README.
+# Comments stay in the file: the provider only reads it.
+- id: obs-1
+  name: Mont Royal
+  lat: 45.5
+  lon: -73.6
+  count: 3
+  seen: 2026-05-01
+  tags: [birds, park]
+- id: obs-2
+  name: Île d'Orléans
+  lat: 46.9
+  lon: -71.0
+  count: 10
+  seen: 2026-06-15
+  tags: [river]
+- id: obs-3
+  name: Somewhere unknown
+  count: 1
+  seen: 2026-07-20
+  notes: >
+    No coordinates: this item has no geometry.

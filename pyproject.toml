@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygeoapi-yaml"
+description = "A pygeoapi provider for YAML files"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Alexandre Leroux"}]
+requires-python = ">=3.10"
+dependencies = [
+    "pygeoapi>=0.24",
+    "PyYAML",
+    "python-dateutil",
+    "shapely",
+]
+dynamic = ["version"]
+keywords = ["pygeoapi", "provider", "plugin", "yaml", "OGC API"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Plugins",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+
+[project.optional-dependencies]
+dev = ["flake8", "pytest"]
+
+[tool.setuptools]
+packages = ["pygeoapi_yaml"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pygeoapi_yaml.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

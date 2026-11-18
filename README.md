@@ -138,6 +138,29 @@ without an `id`.
 - **Read-only.** OGC API - Features - Part 4 (create, replace, update, delete) is
   not implemented yet. See the roadmap.
 
+## Extending
+
+To read another layout, or to compute properties, subclass `YAMLProvider` and
+override `_features(document)`. It receives the parsed YAML document and returns
+GeoJSON features. In the features it returns:
+- values can still be YAML values, such as dates;
+- an `id` can be `None`.
+
+The provider still takes care of the rest: ids, field types, conversion to JSON,
+queries and caching. Each subclass keeps its own parsed copy of a file.
+
+```python
+from pygeoapi_yaml.provider import YAMLProvider
+
+
+class MyProvider(YAMLProvider):
+    def _features(self, document):
+        features = super()._features(document)
+        for feature in features:
+            feature['properties']['label'] = feature['properties']['name'].upper()
+        return features
+```
+
 ## Development
 
 ```bash
@@ -166,6 +189,7 @@ Done (0.1, not released yet):
 - [x] Every query parameter pygeoapi passes to a feature provider.
 - [x] The file is read again when it changes; its parsed copy is shared between
   requests.
+- [x] Subclassing: override `_features()` to read another layout.
 - [x] Tests for the provider alone and through pygeoapi, checked by mutation
   testing (each deliberate bug in the provider makes a test fail).
 

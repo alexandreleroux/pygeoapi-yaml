@@ -159,8 +159,9 @@ class YAMLProvider(BaseProvider):
             LOGGER.warning(f'File {self.data} does not exist.')
             return {'features': [], 'fields': {}}
 
-        key = (os.path.abspath(self.data), self.items_key, self.id_field,
-               self.geometry_x, self.geometry_y, self.geometry_field)
+        key = (type(self), os.path.abspath(self.data), self.items_key,
+               self.id_field, self.geometry_x, self.geometry_y,
+               self.geometry_field)
         stamp = (stat.st_mtime_ns, stat.st_size)
 
         with _CACHE_LOCK:
@@ -186,15 +187,58 @@ class YAMLProvider(BaseProvider):
 
     def _parse(self, document):
         """
-        Turn a parsed YAML document into GeoJSON features
+        Turn a parsed YAML document into JSON-ready GeoJSON features,
+        and read the fields from them
 
         :param document: the parsed YAML document
 
         :returns: `dict` of features (JSON-ready) and fields
         """
 
+        features = []
+        fields = {}
+        ids = set()
+
+        for index, feature in enumerate(self._features(document)):
+            identifier = feature.get('id')
+            if identifier is None:
+                LOGGER.warning(f'Item {index} has no id, using its position')
+                identifier = index
+            if str(identifier) in ids:
+                LOGGER.warning(f'Duplicate id {identifier}')
+            ids.add(str(identifier))
+
+            properties = feature.get('properties') or {}
+            for name, value in properties.items():
+                _add_field(fields, str(name), value)
+
+            features.append({
+                'type': 'Feature',
+                'id': _jsonable(identifier),
+                'geometry': _jsonable(feature.get('geometry')),
+                'properties': _jsonable(properties)
+            })
+
+        for field in fields.values():
+            field.pop('_unset', None)
+
+        return {'features': features, 'fields': fields}
+
+    def _features(self, document):
+        """
+        Find the items of a parsed YAML document, as GeoJSON features
+
+        Override this in a subclass to read another layout, or to
+        compute properties: values may still be YAML values (dates…),
+        and an id may be `None` (the item's position is then used).
+
+        :param document: the parsed YAML document
+
+        :returns: list of `dict` of GeoJSON features
+        """
+
         if document is None:
-            return {'features': [], 'fields': {}}
+            return []
 
         if isinstance(document, dict) and \
            document.get('type') == 'FeatureCollection':
@@ -217,8 +261,6 @@ class YAMLProvider(BaseProvider):
             raise ProviderInvalidDataError(msg)
 
         features = []
-        fields = {}
-        ids = set()
 
         for index, item in enumerate(items):
             if not isinstance(item, dict):
@@ -237,27 +279,14 @@ class YAMLProvider(BaseProvider):
                 identifier = properties.get(self.id_field) \
                     if self.id_field else None
 
-            if identifier is None:
-                LOGGER.warning(f'Item {index} has no id, using its position')
-                identifier = index
-            if str(identifier) in ids:
-                LOGGER.warning(f'Duplicate id {identifier}')
-            ids.add(str(identifier))
-
-            for name, value in properties.items():
-                _add_field(fields, str(name), value)
-
             features.append({
                 'type': 'Feature',
-                'id': _jsonable(identifier),
-                'geometry': _jsonable(geometry),
-                'properties': _jsonable(properties)
+                'id': identifier,
+                'geometry': geometry,
+                'properties': properties
             })
 
-        for field in fields.values():
-            field.pop('_unset', None)
-
-        return {'features': features, 'fields': fields}
+        return features
 
     def _geometry(self, properties, index):
         """

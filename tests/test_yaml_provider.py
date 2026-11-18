@@ -529,3 +529,21 @@ def test_large_file_parsed_once(tmp_path, monkeypatch):
     for _ in range(20):
         YAMLProvider(config).query(limit=10)
     assert time.perf_counter() - start < 2
+
+
+def test_subclass(fixture, config):
+    """A subclass can change how items become features"""
+
+    class Uppercase(YAMLProvider):
+        def _features(self, document):
+            features = super()._features(document)
+            for feature in features:
+                name = feature['properties'].get('name')
+                feature['properties']['name'] = (name or '').upper()
+            return features
+
+    assert Uppercase(config).get('obs-1')['properties']['name'] == \
+        'MONT ROYAL'
+    # each class keeps its own parsed copy of the same file
+    assert YAMLProvider(config).get('obs-1')['properties']['name'] == \
+        'Mont Royal'

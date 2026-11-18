@@ -10,3 +10,6 @@ dist/
 
 # macOS
 .DS_Store
+
+# Private notes for Claude Code
+CLAUDE.md

@@ -1,6 +1,6 @@
 # =================================================================
 #
-# Authors: Alexandre Leroux
+# Authors: Alexandre Leroux <alexandreleroux@icloud.com>
 #
 # Copyright (c) 2026 Alexandre Leroux
 #

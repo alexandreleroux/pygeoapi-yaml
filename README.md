@@ -3,10 +3,15 @@
 A [pygeoapi](https://pygeoapi.io) provider for YAML files. pygeoapi reads the YAML
 file directly, so you don't need to convert it to GeoJSON first.
 
-YAML is pleasant to keep data in by hand: comments, long texts that stay readable,
-and clean diffs in git. This provider publishes such a file as an
-OGC API - Features collection. The YAML file stays the source of truth.
-pygeoapi answers in GeoJSON, as it does for every other provider.
+YAML and JSON map almost one to one, so GeoJSON can be written in YAML as it is:
+a FeatureCollection in a YAML file is served unchanged. YAML adds what is pleasant
+when you keep data by hand: comments, long texts that stay readable, and clean
+diffs in git. Data kept by hand is often a plain list of records, as in a CSV
+file, so the provider reads that too: you say where the id and the geometry are.
+
+This provider publishes such a file as an OGC API - Features collection. The YAML
+file stays the source of truth. pygeoapi answers in GeoJSON, as it does for every
+other provider.
 
 **Status: alpha, read-only.** See [Status and roadmap](#status-and-roadmap).
 
@@ -208,8 +213,9 @@ Next:
   [ruamel.yaml](https://yaml.dev/doc/ruamel.yaml/), so that comments and
   formatting survive a write. Otherwise a write would erase them.
 - [ ] A directory of YAML files, one item per file, as a single collection.
-- [ ] Then ask the pygeoapi maintainers whether they want the provider in
-  pygeoapi itself, as with CSV and TinyDB.
+- [ ] Then, on top of it, a catalogue of
+  [pygeometa](https://geopython.github.io/pygeometa) MCF files (YAML metadata,
+  one record per file) served as OGC API - Records.
 
 ## Authorship
 

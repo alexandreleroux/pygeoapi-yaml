@@ -19,3 +19,8 @@ jobs:
         run: flake8 pygeoapi_yaml tests
       - name: Tests
         run: pytest
+      - name: Package
+        run: |
+          pip install build twine
+          python -m build
+          twine check --strict dist/*

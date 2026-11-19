@@ -25,8 +25,14 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: GIS",
 ]
+
+[project.urls]
+Homepage = "https://github.com/alexandreleroux/pygeoapi-yaml"
+Issues = "https://github.com/alexandreleroux/pygeoapi-yaml/issues"
 
 [project.optional-dependencies]
 dev = ["flake8", "pytest"]

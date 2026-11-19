@@ -184,7 +184,7 @@ There are two kinds of tests:
   - `/collections`, `/items`, `/items/{id}`, the queryables and an empty
     collection are checked.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+See [CONTRIBUTING.md](https://github.com/alexandreleroux/pygeoapi-yaml/blob/main/CONTRIBUTING.md) before opening a pull request.
 
 ## Status and roadmap
 
@@ -231,4 +231,4 @@ tests catch deliberate bugs.
 
 ## License
 
-MIT, like pygeoapi. See [LICENSE](LICENSE).
+MIT, like pygeoapi. See [LICENSE](https://github.com/alexandreleroux/pygeoapi-yaml/blob/main/LICENSE).

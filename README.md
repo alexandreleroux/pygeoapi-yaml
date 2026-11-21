@@ -188,7 +188,7 @@ See [CONTRIBUTING.md](https://github.com/alexandreleroux/pygeoapi-yaml/blob/main
 
 ## Status and roadmap
 
-Done (0.1, not released yet):
+Done (0.1.0, on PyPI):
 
 - [x] Read-only provider: `get_fields`, `query`, `get` and `get_domains`.
 - [x] Three file layouts: records, records under `items_key`, a FeatureCollection.
@@ -205,7 +205,6 @@ Next:
 
 - [ ] CI on both the oldest supported pygeoapi and the latest. For now they are
   the same: 0.24 is both the minimum and the latest release.
-- [ ] First release on PyPI.
 - [ ] Listing on the
   [pygeoapi community plugins page](https://github.com/geopython/pygeoapi/wiki/CommunityPluginsThemes).
 - [ ] A `cql2` filter (`filter=`), through pygeofilter, as other providers do.

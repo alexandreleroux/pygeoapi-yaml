@@ -86,6 +86,7 @@ def test_openapi(config):
     openapi = get_oas(config)
     assert '/collections/observations/items' in openapi['paths']
     assert '/collections/empty/items' in openapi['paths']
+    assert '/collections/notes/items' in openapi['paths']
 
 
 def test_collections(api_):
@@ -93,7 +94,7 @@ def test_collections(api_):
         api_, mock_api_request({'f': 'json'}))
     assert status == HTTPStatus.OK
     ids = [c['id'] for c in json.loads(content)['collections']]
-    assert ids == ['observations', 'empty']
+    assert ids == ['observations', 'empty', 'notes']
 
 
 def test_items(api_):
@@ -181,3 +182,18 @@ def test_empty_collection(api_):
     headers, status, content = get_collection_queryables(
         api_, mock_api_request({'f': 'json'}), 'empty')
     assert status == HTTPStatus.OK
+
+
+def test_directory_collection(api_):
+    status, content = items(api_, 'notes')
+    assert status == HTTPStatus.OK
+    assert [f['id'] for f in content['features']] == ['n3', 'n1', 'n2']
+
+    headers, status, content = get_collection_item(
+        api_, mock_api_request({'f': 'json'}), 'notes', 'n2')
+    assert status == HTTPStatus.OK
+    assert json.loads(content)['properties']['text'] == 'Hello'
+
+    headers, status, content = get_collection_item(
+        api_, mock_api_request({'f': 'json'}), 'notes', 't1')
+    assert status == HTTPStatus.NOT_FOUND

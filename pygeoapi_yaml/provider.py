@@ -30,6 +30,7 @@
 import base64
 from copy import deepcopy
 from datetime import date, datetime, time, timezone
+from fnmatch import fnmatch
 import logging
 import os
 import threading
@@ -46,8 +47,9 @@ from pygeoapi.provider.base import (BaseProvider, ProviderInvalidDataError,
 LOGGER = logging.getLogger(__name__)
 
 # pygeoapi creates a provider object for each request: parsed files are
-# kept here, shared by all of them, and parsed again only when the
-# file's modification time or size has changed
+# kept here, shared by all of them, and parsed again only when a file's
+# modification time or size has changed (or, for a directory, when a
+# file in it was added or removed)
 _CACHE = {}
 _CACHE_LOCK = threading.Lock()
 
@@ -61,13 +63,20 @@ class YAMLProvider(BaseProvider):
       or under the key named by `items_key`
     * a GeoJSON FeatureCollection, written in YAML
 
+    `data` can also be a directory: each YAML file under it (`pattern`,
+    `*.yaml` by default; `exclude` to leave some out) holds items of
+    the same collection, in one of these layouts, or a single item (a
+    mapping, without `items_key`). Hidden files and directories are
+    skipped.
+
     For records, the geometry is optional: a point built from two
     fields (`geometry.x_field`, `geometry.y_field`, as in the CSV
     provider), a field holding a GeoJSON geometry (`geometry.field`),
     or none (`geometry: null` in responses).
 
     Read-only. The file is read again as soon as it changes, without
-    restarting pygeoapi. YAML is parsed with `yaml.safe_load`: no
+    restarting pygeoapi (for a directory: as soon as a file in it is
+    added, changed or removed). YAML is parsed with `yaml.safe_load`: no
     Python objects are ever built from the file.
 
     Values YAML parses natively and JSON lacks are converted in
@@ -100,6 +109,8 @@ class YAMLProvider(BaseProvider):
             raise RuntimeError(msg)
 
         self.items_key = provider_def.get('items_key')
+        self.pattern = provider_def.get('pattern') or '*.yaml'
+        self.exclude = list(provider_def.get('exclude') or [])
 
         self.get_fields()
 
@@ -147,50 +158,91 @@ class YAMLProvider(BaseProvider):
 
     def _read(self):
         """
-        Read and parse the YAML file at self.data, or return the
-        copy parsed earlier if the file has not changed since
+        Read and parse the YAML file (or the YAML files of the directory)
+        at self.data, or return the copy parsed earlier if nothing has
+        changed since
 
         :returns: `dict` of features (JSON-ready) and fields
         """
 
-        try:
-            stat = os.stat(self.data)
-        except FileNotFoundError:
-            LOGGER.warning(f'File {self.data} does not exist.')
-            return {'features': [], 'fields': {}}
+        if os.path.isdir(self.data):
+            paths, stamp = self._scan()
+        else:
+            try:
+                stat = os.stat(self.data)
+            except FileNotFoundError:
+                LOGGER.warning(f'File {self.data} does not exist.')
+                return {'features': [], 'fields': {}}
+            paths = [self.data]
+            stamp = (stat.st_mtime_ns, stat.st_size)
 
         key = (type(self), os.path.abspath(self.data), self.items_key,
                self.id_field, self.geometry_x, self.geometry_y,
-               self.geometry_field)
-        stamp = (stat.st_mtime_ns, stat.st_size)
+               self.geometry_field, self.pattern, tuple(self.exclude))
 
         with _CACHE_LOCK:
             cached = _CACHE.get(key)
         if cached and cached[0] == stamp:
             return cached[1]
 
-        LOGGER.debug(f'Parsing {self.data}')
-        try:
-            with open(self.data, encoding='utf-8') as fh:
-                document = yaml.safe_load(fh)
-        except (yaml.YAMLError, UnicodeDecodeError) as err:
-            msg = f'Invalid YAML file {self.data}'
-            LOGGER.error(f'{msg}: {err}')
-            raise ProviderInvalidDataError(msg)
+        documents = []
+        for path in paths:
+            LOGGER.debug(f'Parsing {path}')
+            try:
+                with open(path, encoding='utf-8') as fh:
+                    documents.append((yaml.safe_load(fh), path))
+            except (yaml.YAMLError, UnicodeDecodeError) as err:
+                msg = f'Invalid YAML file {path}'
+                LOGGER.error(f'{msg}: {err}')
+                if path == self.data:
+                    raise ProviderInvalidDataError(msg)
+                # in a directory, one invalid file does not hide the others
 
-        parsed = self._parse(document)
+        parsed = self._parse(documents)
 
         with _CACHE_LOCK:
             _CACHE[key] = (stamp, parsed)
 
         return parsed
 
-    def _parse(self, document):
+    def _scan(self):
         """
-        Turn a parsed YAML document into JSON-ready GeoJSON features,
+        Find the YAML files of the directory at self.data
+
+        :returns: `tuple` of the list of file paths (sorted), and a stamp
+                  that changes when a file or directory is added, changed
+                  or removed
+        """
+
+        paths = []
+        stamp = []
+
+        for root, dirs, files in os.walk(self.data):
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.'))
+            stamp.append((root, os.stat(root).st_mtime_ns))
+            for name in sorted(files):
+                path = os.path.join(root, name)
+                relative = os.path.relpath(path, self.data)
+                relative = relative.replace(os.sep, '/')
+                if name.startswith('.') or not fnmatch(name, self.pattern):
+                    continue
+                if any(fnmatch(name, e) or fnmatch(relative, e)
+                       for e in self.exclude):
+                    continue
+                stat = os.stat(path)
+                paths.append((relative, path))
+                stamp.append((path, stat.st_mtime_ns, stat.st_size))
+
+        # in the order of their paths, as a listing of the directory shows
+        return [path for _, path in sorted(paths)], tuple(stamp)
+
+    def _parse(self, documents):
+        """
+        Turn parsed YAML documents into JSON-ready GeoJSON features,
         and read the fields from them
 
-        :param document: the parsed YAML document
+        :param documents: list of `tuple` of a parsed YAML document and
+                          the path of its file
 
         :returns: `dict` of features (JSON-ready) and fields
         """
@@ -199,7 +251,16 @@ class YAMLProvider(BaseProvider):
         fields = {}
         ids = set()
 
-        for index, feature in enumerate(self._features(document)):
+        found = []
+        for document, path in documents:
+            try:
+                found.extend(self._features(document, path))
+            except ProviderInvalidDataError:
+                if path == self.data:
+                    raise
+                # in a directory, one invalid file does not hide the others
+
+        for index, feature in enumerate(found):
             identifier = feature.get('id')
             if identifier is None:
                 LOGGER.warning(f'Item {index} has no id, using its position')
@@ -224,7 +285,7 @@ class YAMLProvider(BaseProvider):
 
         return {'features': features, 'fields': fields}
 
-    def _features(self, document):
+    def _features(self, document, path):
         """
         Find the items of a parsed YAML document, as GeoJSON features
 
@@ -233,6 +294,7 @@ class YAMLProvider(BaseProvider):
         and an id may be `None` (the item's position is then used).
 
         :param document: the parsed YAML document
+        :param path: `str` of the path of its file
 
         :returns: list of `dict` of GeoJSON features
         """
@@ -248,15 +310,18 @@ class YAMLProvider(BaseProvider):
             is_collection = False
             if self.items_key:
                 if not isinstance(document, dict):
-                    msg = f'{self.data}: items_key set, but not a mapping'
+                    msg = f'{path}: items_key set, but not a mapping'
                     LOGGER.error(msg)
                     raise ProviderInvalidDataError(msg)
                 items = document.get(self.items_key) or []
+            elif isinstance(document, dict) and path != self.data:
+                # in a directory, a file holding a mapping is one item
+                items = [document]
             else:
                 items = document
 
         if not isinstance(items, list):
-            msg = f'{self.data}: no list of items found (set items_key?)'
+            msg = f'{path}: no list of items found (set items_key?)'
             LOGGER.error(msg)
             raise ProviderInvalidDataError(msg)
 

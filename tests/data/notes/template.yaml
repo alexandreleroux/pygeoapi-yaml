@@ -1,0 +1,5 @@
+# A template, left out by the configuration (exclude)
+page: /template
+notes:
+  - id: t1
+    text: Template

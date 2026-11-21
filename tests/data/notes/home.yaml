@@ -1,0 +1,7 @@
+# Notes about a page: one YAML file per page.
+page: /home
+notes:
+  - id: n1
+    text: Welcome
+  - id: n2
+    text: Hello

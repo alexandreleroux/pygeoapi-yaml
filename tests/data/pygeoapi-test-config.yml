@@ -87,3 +87,23 @@ resources:
         name: pygeoapi_yaml.provider.YAMLProvider
         data: tests/data/empty.yaml
         id_field: id
+
+  notes:
+    type: collection
+    title: Notes
+    description: A directory of YAML files, one per page
+    keywords:
+      - notes
+    extents:
+      spatial:
+        bbox: [-180, -90, 180, 90]
+        crs: http://www.opengis.net/def/crs/OGC/1.3/CRS84
+    providers:
+      - type: feature
+        name: pygeoapi_yaml.provider.YAMLProvider
+        data: tests/data/notes
+        items_key: notes
+        exclude:
+          - template.yaml
+        id_field: id
+        title_field: text

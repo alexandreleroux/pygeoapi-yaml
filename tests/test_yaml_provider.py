@@ -535,8 +535,8 @@ def test_subclass(fixture, config):
     """A subclass can change how items become features"""
 
     class Uppercase(YAMLProvider):
-        def _features(self, document):
-            features = super()._features(document)
+        def _features(self, document, path):
+            features = super()._features(document, path)
             for feature in features:
                 name = feature['properties'].get('name')
                 feature['properties']['name'] = (name or '').upper()
@@ -547,3 +547,150 @@ def test_subclass(fixture, config):
     # each class keeps its own parsed copy of the same file
     assert YAMLProvider(config).get('obs-1')['properties']['name'] == \
         'Mont Royal'
+
+
+@pytest.fixture()
+def directory(tmp_path):
+    """A directory of YAML files: one per page, with its notes"""
+
+    root = tmp_path / 'notes'
+    (root / 'guides').mkdir(parents=True)
+    (root / '.hidden').mkdir()
+    (root / 'home.yaml').write_text(
+        'page: /home\n'
+        'notes:\n'
+        '  - {id: n1, text: Welcome}\n'
+        '  - {id: n2, text: Hello}\n')
+    (root / 'guides' / 'install.yaml').write_text(
+        'page: /guides/install\n'
+        'notes:\n'
+        '  - {id: n3, text: First step, lat: 45.5, lon: -73.6}\n')
+    (root / 'guides' / 'readme.txt').write_text('not YAML\n')
+    (root / 'template.yaml').write_text('notes:\n  - {id: t, text: x}\n')
+    (root / '.draft.yaml').write_text('notes:\n  - {id: d, text: x}\n')
+    (root / '.hidden' / 'old.yaml').write_text('notes:\n  - {id: o}\n')
+    return root
+
+
+def directory_config(root, **options):
+    return {'name': 'YAML', 'type': 'feature', 'data': str(root),
+            'id_field': 'id', 'items_key': 'notes',
+            'exclude': ['template.yaml'],
+            'geometry': {'x_field': 'lon', 'y_field': 'lat'}, **options}
+
+
+def test_directory(directory):
+    p = YAMLProvider(directory_config(directory))
+
+    results = p.query()
+    # files in path order; hidden, excluded and non-YAML files left out
+    assert [f['id'] for f in results['features']] == ['n3', 'n1', 'n2']
+    assert results['features'][0]['geometry']['coordinates'] == [-73.6, 45.5]
+    assert p.get('n2')['properties']['text'] == 'Hello'
+    assert set(p.get_fields()) == {'id', 'text'}
+
+    results = p.query(sortby=[{'property': 'id', 'order': '+'}])
+    assert [f['id'] for f in results['features']] == ['n1', 'n2', 'n3']
+
+
+def test_directory_exclude_path(directory):
+    p = YAMLProvider(directory_config(directory,
+                                      exclude=['template.yaml', 'guides/*']))
+
+    assert [f['id'] for f in p.query()['features']] == ['n1', 'n2']
+
+
+def test_directory_pattern(directory):
+    (directory / 'extra.yml').write_text('notes:\n  - {id: y, text: yml}\n')
+    p = YAMLProvider(directory_config(directory, pattern='*.yml'))
+
+    assert [f['id'] for f in p.query()['features']] == ['y']
+
+
+def test_directory_changes(directory):
+    config = directory_config(directory)
+    assert YAMLProvider(config).query()['numberMatched'] == 3
+
+    # a file added
+    (directory / 'guides' / 'faq.yaml').write_text(
+        'notes:\n  - {id: n4, text: Why}\n')
+    assert YAMLProvider(config).get('n4')['properties']['text'] == 'Why'
+
+    # a file changed
+    write(str(directory / 'home.yaml'), 'notes:\n  - {id: n1, text: Hi}\n')
+    p = YAMLProvider(config)
+    assert p.get('n1')['properties']['text'] == 'Hi'
+    with pytest.raises(ProviderItemNotFoundError):
+        p.get('n2')
+
+    # a file removed
+    (directory / 'guides' / 'install.yaml').unlink()
+    assert [f['id'] for f in YAMLProvider(config).query()['features']] == \
+        ['n4', 'n1']
+
+
+def test_directory_subclass(directory):
+    """A subclass gets each file's path, and sees a change next to it"""
+
+    class Pages(YAMLProvider):
+        def _features(self, document, path):
+            features = super()._features(document, path)
+            folder = os.path.dirname(path)
+            texts = sorted(n for n in os.listdir(folder)
+                           if n.endswith('.txt'))
+            for feature in features:
+                feature['properties']['page'] = document.get('page')
+                feature['properties']['file'] = os.path.basename(path)
+                feature['properties']['texts'] = texts
+            return features
+
+    config = directory_config(directory)
+    n3 = Pages(config).get('n3')['properties']
+    assert n3['page'] == '/guides/install'
+    assert n3['file'] == 'install.yaml'
+    assert n3['texts'] == ['readme.txt']
+
+    # a file that is not YAML, added next to a YAML file
+    (directory / 'guides' / 'later.txt').write_text('more\n')
+    assert Pages(config).get('n3')['properties']['texts'] == \
+        ['later.txt', 'readme.txt']
+
+
+def test_directory_invalid_file(directory):
+    """In a directory, an invalid file does not hide the others"""
+
+    (directory / 'broken.yaml').write_text('notes: [unclosed\n')
+    (directory / 'scalar.yaml').write_text('just text\n')
+    p = YAMLProvider(directory_config(directory))
+
+    assert [f['id'] for f in p.query()['features']] == ['n3', 'n1', 'n2']
+
+
+def test_directory_empty(tmp_path):
+    p = YAMLProvider({'name': 'YAML', 'type': 'feature',
+                      'data': str(tmp_path), 'id_field': 'id'})
+
+    assert p.get_fields() == {}
+    assert p.query()['numberMatched'] == 0
+
+
+def test_directory_one_item_per_file(tmp_path):
+    (tmp_path / 'a').mkdir()
+    (tmp_path / 'a' / 'first.yaml').write_text(
+        'identifier: first\ntitle: First record\nkeywords: [one]\n')
+    (tmp_path / 'second.yaml').write_text(
+        'identifier: second\ntitle: Second record\n')
+    (tmp_path / 'list.yaml').write_text(
+        '- {identifier: third, title: In a list}\n')
+    p = YAMLProvider({'name': 'YAML', 'type': 'feature',
+                      'data': str(tmp_path), 'id_field': 'identifier'})
+
+    assert [f['id'] for f in p.query()['features']] == \
+        ['first', 'third', 'second']
+    assert p.get('first')['properties']['keywords'] == ['one']
+
+    # a single file holding a mapping still needs items_key
+    with pytest.raises(ProviderInvalidDataError):
+        YAMLProvider({'name': 'YAML', 'type': 'feature',
+                      'data': str(tmp_path / 'second.yaml'),
+                      'id_field': 'identifier'})

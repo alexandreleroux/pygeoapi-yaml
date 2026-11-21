@@ -97,6 +97,36 @@ features:
 This needs no setting beyond `data`. `id_field` is used only for features
 without an `id`.
 
+### A directory of YAML files
+
+`data` can also be a directory. All the YAML files under it, in its
+subdirectories too, make one collection:
+- each file can hold items in any of the layouts above;
+- or a file can be a single item, written as a mapping (without `items_key`).
+
+```text
+notes/
+  home.yaml               # page: /home, notes: [...]
+  guides/install.yaml
+  template.yaml           # left out, see exclude
+```
+
+```yaml
+providers:
+  - type: feature
+    name: pygeoapi_yaml.provider.YAMLProvider
+    data: /data/notes
+    items_key: notes          # in each file
+    id_field: id
+    pattern: '*.yaml'         # the default
+    exclude:                  # file names or paths in the directory
+      - template.yaml
+```
+
+Items come in the order of their files' paths (`guides/install.yaml` before
+`home.yaml`). Hidden files and directories (starting with `.`) are skipped.
+An invalid file is logged and left out, and the others are still served.
+
 ## Behaviour
 
 - **Queries.** All of these are supported:
@@ -133,8 +163,10 @@ without an `id`.
 - **Ids** come from `id_field`. An item without one gets its position in the list
   as its id, and a warning is logged, as are duplicate ids.
 - **Changes are seen at once.** Each file is parsed once, then kept in memory
-  until its modification time or size changes. No restart is needed. pygeoapi
-  creates a provider for each request, so the parsed copy is shared between them.
+  until its modification time or size changes. For a directory, the provider also
+  re-reads the files when one is added or removed, including a file that isn't YAML.
+  No restart is needed. pygeoapi creates a provider for each request, so the
+  parsed copy is shared between them.
 - **Empty files** (empty, only comments, or `[]`) and **missing files** give an
   empty collection, not an error.
 - **Safe parsing.** The provider uses `yaml.safe_load`, so a YAML file can never
@@ -146,8 +178,9 @@ without an `id`.
 ## Extending
 
 To read another layout, or to compute properties, subclass `YAMLProvider` and
-override `_features(document)`. It receives the parsed YAML document and returns
-GeoJSON features. In the features it returns:
+override `_features(document, path)`. It receives a parsed YAML document and the
+path of its file, and returns GeoJSON features. With a directory, it is called
+once for each file. In the features it returns:
 - values can still be YAML values, such as dates;
 - an `id` can be `None`.
 
@@ -159,8 +192,8 @@ from pygeoapi_yaml.provider import YAMLProvider
 
 
 class MyProvider(YAMLProvider):
-    def _features(self, document):
-        features = super()._features(document)
+    def _features(self, document, path):
+        features = super()._features(document, path)
         for feature in features:
             feature['properties']['label'] = feature['properties']['name'].upper()
         return features
@@ -181,8 +214,8 @@ There are two kinds of tests:
 - `tests/test_api.py` goes through pygeoapi itself:
   - the configuration is validated against pygeoapi's schema;
   - the OpenAPI document is generated;
-  - `/collections`, `/items`, `/items/{id}`, the queryables and an empty
-    collection are checked.
+  - `/collections`, `/items`, `/items/{id}`, the queryables, an empty
+    collection and a directory are checked.
 
 See [CONTRIBUTING.md](https://github.com/alexandreleroux/pygeoapi-yaml/blob/main/CONTRIBUTING.md) before opening a pull request.
 
@@ -201,6 +234,14 @@ Done (0.1.0, on PyPI):
   testing (each deliberate bug in the provider makes a test fail).
 - [x] Continuous integration: pytest and flake8 on Python 3.12 and 3.13.
 
+Done (0.2.0, not released yet):
+
+- [x] A directory of YAML files as a single collection: items in each file, or
+  one item per file; `pattern` and `exclude`; read again when a file is added,
+  changed or removed.
+- [x] `_features(document, path)`: subclasses get the path of each file. In
+  0.1.0 it was `_features(document)`.
+
 Next:
 
 - [ ] CI on both the oldest supported pygeoapi and the latest. For now they are
@@ -211,7 +252,6 @@ Next:
 - [ ] Writing (OGC API - Features - Part 4). This only comes with
   [ruamel.yaml](https://yaml.dev/doc/ruamel.yaml/), so that comments and
   formatting survive a write. Otherwise a write would erase them.
-- [ ] A directory of YAML files, one item per file, as a single collection.
 - [ ] Then, on top of it, a catalogue of
   [pygeometa](https://geopython.github.io/pygeometa) MCF files (YAML metadata,
   one record per file) served as OGC API - Records.

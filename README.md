@@ -234,7 +234,7 @@ Done (0.1.0, on PyPI):
   testing (each deliberate bug in the provider makes a test fail).
 - [x] Continuous integration: pytest and flake8 on Python 3.12 and 3.13.
 
-Done (0.2.0, not released yet):
+Done (0.2.0, on PyPI):
 
 - [x] A directory of YAML files as a single collection: items in each file, or
   one item per file; `pattern` and `exclude`; read again when a file is added,

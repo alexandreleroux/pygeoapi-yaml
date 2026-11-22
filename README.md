@@ -242,12 +242,13 @@ Done (0.2.0, on PyPI):
 - [x] `_features(document, path)`: subclasses get the path of each file. In
   0.1.0 it was `_features(document)`.
 
+Listed on the
+[pygeoapi community plugins page](https://github.com/geopython/pygeoapi/wiki/CommunityPluginsThemes).
+
 Next:
 
 - [ ] CI on both the oldest supported pygeoapi and the latest. For now they are
   the same: 0.24 is both the minimum and the latest release.
-- [ ] Listing on the
-  [pygeoapi community plugins page](https://github.com/geopython/pygeoapi/wiki/CommunityPluginsThemes).
 - [ ] A `cql2` filter (`filter=`), through pygeofilter, as other providers do.
 - [ ] Writing (OGC API - Features - Part 4). This only comes with
   [ruamel.yaml](https://yaml.dev/doc/ruamel.yaml/), so that comments and
